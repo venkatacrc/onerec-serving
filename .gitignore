@@ -1,0 +1,21 @@
+# Generated benchmark output (large, host-specific, regenerate via run_all.sh)
+results/*
+!results/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Model weights / HF cache / venv live outside the repo by default
+# (see scripts/env.sh $ONEREC_DATA_DIR), but ignore them here too in case
+# someone points ONEREC_DATA_DIR at a path inside the repo.
+onerec-data/
+*.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS/editor cruft
+.DS_Store
+*.swp
