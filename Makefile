@@ -1,4 +1,4 @@
-.PHONY: preflight install download pull smoke bench report all stop clean
+.PHONY: preflight install download pull smoke bench report slides all stop clean
 
 preflight:
 	./scripts/00_preflight_check.sh
@@ -25,6 +25,10 @@ bench:
 report:
 	bash -c 'source scripts/env.sh && source "$$VENV_DIR/bin/activate" && \
 		python3 bench/generate_report.py --results-dir results --out-dir results/report'
+
+slides:
+	bash -c 'source scripts/env.sh && source "$$VENV_DIR/bin/activate" && \
+		python3 bench/generate_slides.py --results-dir results --report-dir results/report'
 
 all:
 	./run_all.sh

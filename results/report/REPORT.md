@@ -1,6 +1,6 @@
 # OneRec-8B-Pro Serving Benchmark Report
 
-_Generated automatically from `/home/nvadmin/onerec-serving/results` -- do not hand-edit; re-run `bench/generate_report.py` after any new benchmark run._
+_Generated automatically from `results` -- do not hand-edit; re-run `bench/generate_report.py` after any new benchmark run._
 
 ## Runs included
 

@@ -46,10 +46,11 @@ and how to run a faster subset first).
 When it finishes:
 
 - `results/report/REPORT.md` — the comparison report (tables + charts)
-- `results/report/*.png` — latency-vs-throughput, throughput-scaling, TTFT charts
+- `results/report/SLIDES.html` — a self-contained HTML slide deck (charts embedded as base64) summarizing the run for architecture review; open in any browser, arrow keys/space to navigate, Ctrl/Cmd+P to export as PDF
+- `results/report/*.png` — latency-vs-throughput, throughput-scaling, TTFT, and (if any run had failures) failure-rate/GPU-utilization diagnostic charts
 - `results/<run-name>/bench_*.json` — raw per-request data for deeper analysis
 - `results/run_summary.json` — pass/fail status of every matrix entry
-- `logs/` — full stdout/stderr of every step, for debugging
+- `logs/` — full stdout/stderr of every step, for debugging (**copy this off the box along with `results/` if you plan to analyze failures later** — it's not needed to regenerate the report/slides, but it's the only place error detail from a failed `server_failed_to_start`/`smoke_test_failed` run lives)
 
 If you'd rather run things step by step (recommended the first time, so you
 can sanity-check each stage), see `docs/RUNBOOK.md`.
@@ -76,6 +77,7 @@ bench/
   prompt_dataset.py          Domain-flavored synthetic prompt generator
   benchmark_client.py        Async load generator (latency + throughput modes)
   run_matrix.py              Orchestrates serve -> smoke test -> benchmark -> teardown
+  generate_slides.py         Builds results/report/SLIDES.html (architect-facing deck)
   generate_report.py         Aggregates results/ into results/report/REPORT.md
 run_all.sh                   One-shot end-to-end entry point
 results/, logs/              Generated output (gitignored)
