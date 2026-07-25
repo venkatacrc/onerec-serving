@@ -164,6 +164,48 @@ apt-get install --only-upgrade nvidia-container-toolkit`.
 Group membership changes require a new login session. Run `exec su -l
 "$USER"` or fully log out/in, then re-check with `groups`.
 
+### Troubleshooting: docker `--gpus` multi-device bug
+**Symptom:** any tensor-parallel config with more than one GPU
+(`vllm-tp2-bf16`, `vllm-tp4-bf16`, `vllm-tp8-bf16`, `sglang-tp8-bf16`, ...)
+fails after the full health-check timeout, and `logs/<run-name>.serve.log`
+shows, right after the `docker run` line:
+```
+docker: Error response from daemon: cannot set both Count and DeviceIDs on device request
+```
+Single-GPU configs (`gpus=0`, no comma) are unaffected -- that's the
+diagnostic tell. **Root cause:** Docker's `--gpus` flag parser splits its
+argument on commas into separate device-request fields. An unquoted
+`--gpus device=0,1` is parsed as two fields -- `device=0` (sets
+`DeviceIDs`) and a bare `1` (shorthand for `count=1`) -- and Docker rejects
+having both `DeviceIDs` and `Count` set on the same request. The fix
+(already applied in `scripts/10/11/12_serve_*.sh`) is to wrap the whole
+value in **embedded literal double quotes** so Docker treats it as one
+atomic field:
+```bash
+--gpus "\"device=${GPUS}\""     # bash -> passes docker the literal argv: "device=0,1"
+```
+If you still hit this after confirming the scripts have that exact form,
+it's a genuinely different issue -- try `docker run --rm --gpus
+'"device=0,1"' nvidia/cuda:13.0.0-base-ubuntu22.04 nvidia-smi -L` by hand,
+and if that also fails, upgrade `nvidia-container-toolkit`/Docker Engine.
+`scripts/00_preflight_check.sh` checks this specific case automatically so
+it's caught in seconds, not 30 minutes into a matrix run.
+
+### Troubleshooting: SGLang `ModuleNotFoundError: No module named 'distro'`
+**Symptom:** `sglang-*` configs fail immediately (well before the health
+timeout) with a Python traceback in `logs/onerec-sglang-*.log` ending in
+`ModuleNotFoundError: No module named 'distro'`, raised while importing
+the bundled `openai` client library. **Root cause:** a packaging defect in
+some `lmsysorg/sglang` runtime image tags (observed on
+`latest-cu130-runtime` as of 2026-07-24) -- the image is missing a
+transitive dependency. `scripts/11_serve_sglang.sh` already works around
+this by overriding the container entrypoint to run `python3 -m pip install
+--quiet distro` immediately before starting `sglang.launch_server` (a
+fast no-op once/if the upstream image fixes it). If a future SGLang image
+tag throws a *different* `ModuleNotFoundError`, add the missing package
+name to the same `pip install` line (see the `LAUNCH_CMD` variable in that
+script), or switch `SGLANG_IMAGE` in `scripts/env.sh` to a different tag.
+
 ### A serve script times out waiting for `/health`
 Check `logs/<container-name>.log` (or `logs/<run-name>.serve.log` if
 launched via `run_matrix.py`) for the actual engine error — common causes:

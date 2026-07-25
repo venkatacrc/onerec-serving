@@ -61,9 +61,17 @@ log_info "Starting vLLM server '${CONTAINER_NAME}' on GPU(s) ${GPUS} (TP=${TP}, 
 log_info "Image: ${VLLM_IMAGE}"
 
 # shellcheck disable=SC2086
+# NOTE: the embedded literal double-quotes around device=... are REQUIRED,
+# not a typo. Docker's --gpus parser splits its argument on commas into
+# separate device-request fields; an unquoted `device=0,1` gets parsed as
+# TWO fields (`device=0` -> DeviceIDs, bare `1` -> Count), which Docker
+# rejects with "cannot set both Count and DeviceIDs on device request".
+# Wrapping the whole value in quotes makes it one atomic field. This broke
+# every multi-GPU run the first time this toolkit was used end-to-end --
+# see docs/RUNBOOK.md "Troubleshooting: docker --gpus multi-device bug".
 docker run -d \
   --name "$CONTAINER_NAME" \
-  --gpus "device=${GPUS}" \
+  --gpus "\"device=${GPUS}\"" \
   --ipc=host \
   -p "${PORT}:8000" \
   -v "${HF_HOME}:/root/.cache/huggingface" \

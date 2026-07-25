@@ -71,6 +71,25 @@ if command -v docker >/dev/null 2>&1; then
   else
     log_warn "Could not verify GPU passthrough into containers yet (nvidia-container-toolkit likely not installed). scripts/01_install_base_deps.sh will fix this."
   fi
+
+  # Multi-GPU device selection uses --gpus "device=0,1,..." (see
+  # scripts/10_serve_vllm.sh for why the embedded quotes matter). Verify
+  # this specific form works -- a known Docker CLI parsing bug rejects it
+  # with "cannot set both Count and DeviceIDs on device request" on some
+  # Docker/toolkit version combinations, which otherwise only surfaces 30
+  # minutes into a matrix run when a TP>1 config's health check times out.
+  if [[ "${N_GPU:-0}" -ge 2 ]]; then
+    MGPU_LOG=$(mktemp)
+    if docker run --rm --gpus "\"device=0,1\"" nvidia/cuda:13.0.0-base-ubuntu22.04 nvidia-smi -L >"$MGPU_LOG" 2>&1; then
+      log_ok "Multi-GPU device selection works (docker run --gpus \"device=0,1\")"
+    else
+      log_err "Multi-GPU device selection FAILED -- any TP>1 configuration in configs/matrix.yaml will hang for 30 min and then fail. Error:"
+      tail -n 5 "$MGPU_LOG" | sed 's/^/    /'
+      log_err "This is the exact bug documented in docs/RUNBOOK.md -> 'Troubleshooting: docker --gpus multi-device bug'. If you still hit it after that fix, try upgrading nvidia-container-toolkit / Docker Engine."
+      FAILS=$((FAILS + 1))
+    fi
+    rm -f "$MGPU_LOG"
+  fi
 else
   log_warn "docker not installed yet -- scripts/01_install_base_deps.sh will install it."
 fi
