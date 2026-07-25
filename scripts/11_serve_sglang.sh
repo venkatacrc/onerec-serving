@@ -53,10 +53,49 @@ LOG_FILE="${LOG_DIR}/${CONTAINER_NAME}.log"
 log_info "Starting SGLang server '${CONTAINER_NAME}' on GPU(s) ${GPUS} (TP=${TP}, dtype=${DTYPE}, max-model-len=${MAX_MODEL_LEN}, port=${PORT})"
 log_info "Image: ${SGLANG_IMAGE}"
 
+# Build the launch_server invocation as an array first (so we can shell-quote
+# it safely), rather than splicing it directly into `docker run`'s argv --
+# we need it as a single string below to run it via `bash -lc` alongside a
+# pre-flight `pip install` workaround (see comment near LAUNCH_CMD).
+SGLANG_LAUNCH_ARGS=(
+  python3 -m sglang.launch_server
+  --model-path /model
+  --served-model-name onerec-8b-pro
+  --tp "$TP"
+  --dtype "$DTYPE_ARG"
+  "${QUANT_ARGS[@]}"
+  --context-length "$MAX_MODEL_LEN"
+  --mem-fraction-static "$MEM_FRACTION_STATIC"
+  --trust-remote-code
+  --host 0.0.0.0
+  --port 30000
+)
+if [[ -n "$EXTRA_ARGS" ]]; then
+  # shellcheck disable=SC2206
+  SGLANG_LAUNCH_ARGS+=($EXTRA_ARGS)
+fi
+SGLANG_LAUNCH_CMD=""
+for a in "${SGLANG_LAUNCH_ARGS[@]}"; do
+  SGLANG_LAUNCH_CMD+=" $(printf '%q' "$a")"
+done
+
+# Known packaging bug (observed 2026-07-24) in some lmsysorg/sglang runtime
+# tags: the bundled `openai` client library's `distro` dependency is
+# missing, which crashes the container at import time with
+# "ModuleNotFoundError: No module named 'distro'" before the server even
+# starts -- independent of GPU/model config. Self-heal by installing it at
+# container start rather than depending on the exact pinned tag being fixed
+# upstream; this is a fast no-op once the image ships it correctly. If you
+# see other ModuleNotFoundErrors from this image, add them to this line.
+LAUNCH_CMD="python3 -m pip install --quiet --no-input distro >/dev/null 2>&1 || true; exec ${SGLANG_LAUNCH_CMD}"
+
 # shellcheck disable=SC2086
+# NOTE: embedded literal double-quotes around device=... are REQUIRED --
+# see the matching comment in scripts/10_serve_vllm.sh and
+# docs/RUNBOOK.md "Troubleshooting: docker --gpus multi-device bug".
 docker run -d \
   --name "$CONTAINER_NAME" \
-  --gpus "device=${GPUS}" \
+  --gpus "\"device=${GPUS}\"" \
   --ipc=host \
   --shm-size 32g \
   -p "${PORT}:30000" \
@@ -64,19 +103,9 @@ docker run -d \
   -v "${MODEL_DIR}:/model:ro" \
   -e "HF_HOME=/root/.cache/huggingface" \
   --restart unless-stopped \
+  --entrypoint bash \
   "$SGLANG_IMAGE" \
-  python3 -m sglang.launch_server \
-  --model-path /model \
-  --served-model-name onerec-8b-pro \
-  --tp "$TP" \
-  --dtype "$DTYPE_ARG" \
-  "${QUANT_ARGS[@]}" \
-  --context-length "$MAX_MODEL_LEN" \
-  --mem-fraction-static "$MEM_FRACTION_STATIC" \
-  --trust-remote-code \
-  --host 0.0.0.0 \
-  --port 30000 \
-  $EXTRA_ARGS \
+  -lc "$LAUNCH_CMD" \
   > /dev/null
 
 docker logs -f "$CONTAINER_NAME" > "$LOG_FILE" 2>&1 &

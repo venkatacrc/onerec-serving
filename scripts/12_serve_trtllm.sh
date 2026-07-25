@@ -65,9 +65,12 @@ if [[ "$DTYPE" == "fp8" ]]; then
 fi
 
 # shellcheck disable=SC2086
+# NOTE: embedded literal double-quotes around device=... are REQUIRED --
+# see the matching comment in scripts/10_serve_vllm.sh and
+# docs/RUNBOOK.md "Troubleshooting: docker --gpus multi-device bug".
 docker run -d \
   --name "$CONTAINER_NAME" \
-  --gpus "device=${GPUS}" \
+  --gpus "\"device=${GPUS}\"" \
   --ipc=host \
   --ulimit memlock=-1 \
   --ulimit stack=67108864 \
