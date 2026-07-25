@@ -1,0 +1,10 @@
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp8-bf16' on GPU(s) 0,1,2,3,4,5,6,7 (TP=8, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+docker: Error response from daemon: cannot set both Count and DeviceIDs on device request
+
+Run 'docker run --help' for more information
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp8-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+[0;31m[FAIL][0m  vLLM (vllm-tp8-bf16) did not become healthy within 1800s
+[0;31m[FAIL][0m  vLLM server 'vllm-tp8-bf16' failed to become healthy. Last 60 log lines:
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp8-bf16 --tp 8 --gpus 0,1,2,3,4,5,6,7 --dtype bfloat16 --max-model-len 8192 --port 8000

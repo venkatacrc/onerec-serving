@@ -1,0 +1,32 @@
+[0;34m[INFO][0m  Sending smoke-test completion request to http://localhost:8002/v1/completions
+{
+    "id": "cmpl-0054fdb2222b45828aa505d4fae33580",
+    "object": "text_completion",
+    "created": 1784940352,
+    "model": "onerec-8b-pro",
+    "choices": [
+        {
+            "index": 0,
+            "text": " recommends similar titles based on the user's watch history. The response should include at least 3 recommendations. Each recommendation should be a title of a movie or series, and the explanation should be a short, clear reason why the recommended title might be similar to the user's watched content. The response should be in English and lowercase. Do not include any markdown formatting. The response should be in the format: \"recommend1: title1, explain1. recommend2: title2, explain2. recommend3: title3, explain3.\" The explanations should be concise and based on the genres or themes of the watched titles. The response",
+            "token_ids": null,
+            "logprobs": null,
+            "context_logits": null,
+            "finish_reason": "length",
+            "stop_reason": null,
+            "disaggregated_params": null,
+            "avg_decoded_tokens_per_iter": 1.0
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 26,
+        "total_tokens": 154,
+        "completion_tokens": 128,
+        "prompt_tokens_details": {
+            "cached_tokens": 0
+        }
+    },
+    "prompt_token_ids": null
+}
+[0;32m[ OK ][0m  Smoke test passed: server returned a non-empty completion.
+
+$ /home/nvadmin/onerec-serving/scripts/20_smoke_test.sh --port 8002

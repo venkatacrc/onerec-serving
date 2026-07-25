@@ -1,0 +1,42 @@
+[0;34m[INFO][0m  Starting SGLang server 'onerec-sglang-sglang-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8001)
+[0;34m[INFO][0m  Image: lmsysorg/sglang:latest-cu130-runtime
+[0;34m[INFO][0m  waiting for SGLang (sglang-tp1-bf16) to become healthy at http://localhost:8001/health (timeout 1800s)...
+[0;31m[FAIL][0m  SGLang (sglang-tp1-bf16) did not become healthy within 1800s
+[0;31m[FAIL][0m  SGLang server 'sglang-tp1-bf16' failed to become healthy. Last 60 log lines:
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.0.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/usr/local/lib/python3.12/dist-packages/torchao/quantization/quant_api.py:1731: SyntaxWarning: invalid escape sequence '\.'
+  """Configuration class for applying different quantization configs to modules or parameters based on their fully qualified names (FQNs).
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/sgl-workspace/sglang/python/sglang/launch_server.py", line 8, in <module>
+    from sglang.srt.server_args import prepare_server_args
+  File "/sgl-workspace/sglang/python/sglang/srt/server_args.py", line 49, in <module>
+    from sglang.srt.function_call.function_call_parser import FunctionCallParser
+  File "/sgl-workspace/sglang/python/sglang/srt/function_call/function_call_parser.py", line 5, in <module>
+    from sglang.srt.entrypoints.openai.protocol import (
+  File "/sgl-workspace/sglang/python/sglang/srt/entrypoints/openai/protocol.py", line 36, in <module>
+    from openai.types.responses import (
+  File "/usr/local/lib/python3.12/dist-packages/openai/__init__.py", line 12, in <module>
+    from ._client import Client, OpenAI, Stream, Timeout, Transport, AsyncClient, AsyncOpenAI, AsyncStream, RequestOptions
+  File "/usr/local/lib/python3.12/dist-packages/openai/_client.py", line 32, in <module>
+    from ._base_client import (
+  File "/usr/local/lib/python3.12/dist-packages/openai/_base_client.py", line 36, in <module>
+    import distro
+ModuleNotFoundError: No module named 'distro'
+
+$ /home/nvadmin/onerec-serving/scripts/11_serve_sglang.sh --run-name sglang-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8001
