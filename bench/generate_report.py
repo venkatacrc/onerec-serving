@@ -58,6 +58,19 @@ def build_latency_table(runs: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def collect_failure_notes(runs: dict) -> list[str]:
+    notes = []
+    for name, run in runs.items():
+        thr = run.get("throughput")
+        if not thr:
+            continue
+        for key, r in thr["results"].items():
+            if r.get("n_failed", 0) > 0 and r.get("top_errors"):
+                errs = ", ".join(f"`{e['error']}` x{e['count']}" for e in r["top_errors"])
+                notes.append(f"- `{name}` @ concurrency={r['concurrency']}: {r['n_failed']} failed -- {errs}")
+    return notes
+
+
 def build_throughput_table(runs: dict) -> pd.DataFrame:
     rows = []
     for name, run in runs.items():
@@ -185,6 +198,18 @@ def render_markdown(runs, df_lat, df_thr, chart_paths, out_dir: Path, results_di
     if not df_lat.empty:
         lines.append("## Single-user latency sweep (concurrency = 1)\n")
         lines.append(df_lat.round(3).to_markdown(index=False))
+        lines.append("")
+
+    failure_notes = collect_failure_notes(runs)
+    if failure_notes:
+        lines.append("## Data quality flags: request failures under load\n")
+        lines.append(
+            "Non-zero `n_failed` at a concurrency level means the numbers at "
+            "**that level and above should not be trusted for capacity "
+            "planning** until root-caused (see `docs/RUNBOOK.md` -> "
+            "'Interpreting failed/anomalous throughput results'). Breakdown:\n"
+        )
+        lines.extend(failure_notes)
         lines.append("")
 
     lines.append("## How to read this report\n")

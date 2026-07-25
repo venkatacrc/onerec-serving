@@ -257,48 +257,66 @@ async def _throughput_worker(worker_id, args, session, in_len, out_len, stop_eve
         i += 1
 
 
-async def run_throughput_sweep(args, session: aiohttp.ClientSession) -> dict:
+async def run_throughput_sweep(args, session_factory) -> dict:
+    """`session_factory` is a zero-arg callable returning a fresh
+    aiohttp.ClientSession as an async context manager. A NEW session (and
+    therefore a fresh TCP connection pool) is used for every concurrency
+    level, so that connection-pool state/backlog from one level can never
+    bleed into the next -- this matters because closed-loop sweeps run all
+    levels back-to-back in one process."""
     concurrency_levels = [int(x) for x in args.concurrency_levels.split(",")]
     in_len, out_len = args.fixed_input_len, args.fixed_output_len
     results = {}
 
     for c in concurrency_levels:
-        print(f"[throughput] concurrency={c}: warmup ({args.warmup_seconds}s)...", flush=True)
-        warmup_stop = asyncio.Event()
-        warmup_results: list[RequestResult] = []
-        warmup_workers = [
-            asyncio.create_task(_throughput_worker(w, args, session, in_len, out_len, warmup_stop, warmup_results, 0))
-            for w in range(c)
-        ]
-        await asyncio.sleep(args.warmup_seconds)
-        warmup_stop.set()
-        await asyncio.gather(*warmup_workers, return_exceptions=True)
+        async with session_factory() as session:
+            print(f"[throughput] concurrency={c}: warmup ({args.warmup_seconds}s)...", flush=True)
+            warmup_stop = asyncio.Event()
+            warmup_results: list[RequestResult] = []
+            warmup_workers = [
+                asyncio.create_task(_throughput_worker(w, args, session, in_len, out_len, warmup_stop, warmup_results, 0))
+                for w in range(c)
+            ]
+            await asyncio.sleep(args.warmup_seconds)
+            warmup_stop.set()
+            await asyncio.gather(*warmup_workers, return_exceptions=True)
 
-        print(f"[throughput] concurrency={c}: measuring ({args.measure_seconds}s)...", flush=True)
-        gpu_sampler = GpuSampler(args.gpu_ids) if args.gpu_ids else None
-        if gpu_sampler:
-            await gpu_sampler.start()
+            print(f"[throughput] concurrency={c}: measuring ({args.measure_seconds}s)...", flush=True)
+            gpu_sampler = GpuSampler(args.gpu_ids) if args.gpu_ids else None
+            if gpu_sampler:
+                await gpu_sampler.start()
 
-        stop_event = asyncio.Event()
-        measured: list[RequestResult] = []
-        t0 = time.perf_counter()
-        workers = [
-            asyncio.create_task(_throughput_worker(w, args, session, in_len, out_len, stop_event, measured, 1))
-            for w in range(c)
-        ]
-        await asyncio.sleep(args.measure_seconds)
-        stop_event.set()
-        await asyncio.gather(*workers, return_exceptions=True)
-        wall_s = time.perf_counter() - t0
+            stop_event = asyncio.Event()
+            measured: list[RequestResult] = []
+            t0 = time.perf_counter()
+            workers = [
+                asyncio.create_task(_throughput_worker(w, args, session, in_len, out_len, stop_event, measured, 1))
+                for w in range(c)
+            ]
+            await asyncio.sleep(args.measure_seconds)
+            stop_event.set()
+            await asyncio.gather(*workers, return_exceptions=True)
+            wall_s = time.perf_counter() - t0
 
         gpu_stats = await gpu_sampler.stop() if gpu_sampler else {}
 
         ok = [r for r in measured if r.ok]
-        failed = len(measured) - len(ok)
+        failed_reqs = [r for r in measured if not r.ok]
+        failed = len(failed_reqs)
         total_out_tokens = sum(r.output_tokens for r in ok)
         total_in_tokens = sum(r.input_tokens for r in ok)
         ttft = _percentiles([r.ttft_s for r in ok])
         e2e = _percentiles([r.e2e_s for r in ok])
+
+        # Surface *why* requests failed (timeout vs HTTP error vs connection
+        # reset, etc.) instead of just a bare count -- critical for telling
+        # "client-side bottleneck" apart from "server rejected the request"
+        # apart from "genuine capacity ceiling."
+        error_counts: dict[str, int] = {}
+        for r in failed_reqs:
+            key = (r.error or "unknown")[:120]
+            error_counts[key] = error_counts.get(key, 0) + 1
+        top_errors = sorted(error_counts.items(), key=lambda kv: -kv[1])[:5]
 
         n_gpus = max(1, len([g for g in (args.gpu_ids or "").split(",") if g != ""]))
         results[f"c{c}"] = {
@@ -308,6 +326,7 @@ async def run_throughput_sweep(args, session: aiohttp.ClientSession) -> dict:
             "wall_s": wall_s,
             "n_requests_completed": len(ok),
             "n_failed": failed,
+            "top_errors": [{"error": e, "count": n} for e, n in top_errors],
             "output_tokens_per_s": total_out_tokens / wall_s if wall_s > 0 else None,
             "total_tokens_per_s": (total_out_tokens + total_in_tokens) / wall_s if wall_s > 0 else None,
             "requests_per_s": len(ok) / wall_s if wall_s > 0 else None,
@@ -320,7 +339,9 @@ async def run_throughput_sweep(args, session: aiohttp.ClientSession) -> dict:
         tok_s = r["output_tokens_per_s"]
         print(f"[throughput] concurrency={c}: {tok_s:.1f} tok/s  "
               f"{r['requests_per_s']:.2f} req/s  TTFT p50={ttft['p50']:.3f}s  "
-              f"E2E p50={e2e['p50']:.3f}s  failed={failed}", flush=True)
+              f"E2E p50={e2e['p50']:.3f}s  failed={failed}"
+              + (f"  top_error={top_errors[0][0]!r}x{top_errors[0][1]}" if top_errors else ""),
+              flush=True)
     return results
 
 
@@ -353,12 +374,14 @@ def parse_args():
 
 
 async def main_async(args):
-    connector = aiohttp.TCPConnector(limit=0)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        if args.mode == "latency":
+    def session_factory():
+        return aiohttp.ClientSession(connector=aiohttp.TCPConnector(limit=0))
+
+    if args.mode == "latency":
+        async with session_factory() as session:
             data = await run_latency_sweep(args, session)
-        else:
-            data = await run_throughput_sweep(args, session)
+    else:
+        data = await run_throughput_sweep(args, session_factory)
 
     out_dir = Path(args.output_dir) / args.run_name
     out_dir.mkdir(parents=True, exist_ok=True)

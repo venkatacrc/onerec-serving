@@ -105,18 +105,23 @@ committing to the full 8-entry matrix):
 python3 bench/run_matrix.py --matrix configs/matrix.yaml --only vllm-tp1-bf16,sglang-tp1-bf16
 ```
 
-### 1.7 Generate/regenerate the report
+### 1.7 Generate/regenerate the report and slide deck
 
-`run_matrix.py` does this automatically at the end. To regenerate later
+`run_matrix.py` does both automatically at the end. To regenerate later
 (e.g. after manually adding a run, or re-running one failed entry):
 
 ```bash
 source "$VENV_DIR/bin/activate"
 python3 bench/generate_report.py --results-dir results --out-dir results/report
+python3 bench/generate_slides.py --results-dir results --report-dir results/report
 deactivate
 ```
 
-Open `results/report/REPORT.md`.
+Open `results/report/REPORT.md` for the detailed tables, or
+`results/report/SLIDES.html` for an architect-facing slide deck (self-contained,
+open it in any browser -- arrow keys/space to navigate, Ctrl/Cmd+P to export
+to PDF). Both automatically flag any concurrency level with request
+failures so a broken/anomalous run doesn't get quoted as a clean result.
 
 ## 2. Monitoring an in-progress run
 
@@ -208,6 +213,42 @@ request gets a higher rate limit):
 export HF_TOKEN=hf_xxxxxxxx
 ./scripts/02_download_model.sh
 ```
+
+### Interpreting failed/anomalous throughput results
+If `results/report/REPORT.md` shows a "Data quality flags" section, or you
+see `n_failed > 0` in the throughput table alongside **falling** GPU
+utilization as concurrency increases (instead of rising toward
+saturation), do not use that concurrency level or anything above it for
+capacity planning yet. That combination (utilization drops + failures
+appear) is the signature of a bottleneck *outside* the model itself --
+usually one of:
+
+1. **Client-side saturation.** A single Python `asyncio` process generating
+   hundreds of concurrent streaming HTTP connections and parsing SSE/JSON
+   per token can itself become the bottleneck (GIL-bound JSON parsing),
+   which looks exactly like "the server stopped keeping up." Check CPU
+   usage of the `benchmark_client.py` process (`top`/`htop`) during a high
+   concurrency level -- if it's pegged at 100% of a core, the client is the
+   ceiling, not the engine.
+2. **Engine admission control / queue limits.** vLLM/SGLang/TensorRT-LLM
+   all have default caps (`--max-num-seqs`, `--max_batch_size`,
+   scheduler queue depth) that silently start rejecting or heavily queueing
+   requests beyond a threshold. Check the engine's own container logs
+   (`logs/<run-name>.serve.log` or `docker logs <container>`) during the
+   failing window for 429/queue-full/timeout messages.
+3. **KV cache pressure causing preemption.** If many long-context sequences
+   are in flight simultaneously, an engine may preempt/recompute sequences
+   when it runs low on KV cache blocks, which can look like a latency cliff
+   even on a GPU with abundant HBM if `--gpu-memory-utilization` /
+   `--mem-fraction-static` was set conservatively.
+
+As of this toolkit's current version, `bench/benchmark_client.py` opens a
+**fresh connection pool per concurrency level** (to rule out connection-pool
+carryover between levels) and records the top error messages per level in
+`results/<run>/bench_throughput.json` (`results.cN.top_errors`) -- re-run
+the affected configuration and check that field first; it will usually tell
+you immediately whether you're looking at HTTP timeouts, connection resets,
+or explicit server error responses.
 
 ### Report generation fails with "No results found"
 `bench/run_matrix.py` writes results even for partially-failed runs, but if

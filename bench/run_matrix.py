@@ -192,6 +192,10 @@ def main():
     sh([sys.executable, str(Path(__file__).parent / "generate_report.py"),
         "--results-dir", str(results_dir), "--out-dir", str(results_dir / "report")])
 
+    print("\nGenerating slide deck...")
+    sh([sys.executable, str(Path(__file__).parent / "generate_slides.py"),
+        "--results-dir", str(results_dir), "--report-dir", str(results_dir / "report")])
+
 
 if __name__ == "__main__":
     main()
