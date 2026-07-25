@@ -1,0 +1,8 @@
+[0;34m[INFO][0m  Starting TensorRT-LLM server 'onerec-trtllm-trtllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8002)
+[0;34m[INFO][0m  Image: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc22
+[0;33m[WARN][0m  First launch compiles/warms up CUDA graphs and can take several minutes longer than vLLM/SGLang -- this is expected, not a hang.
+[0;34m[INFO][0m  waiting for TensorRT-LLM (trtllm-tp1-bf16) to become healthy at http://localhost:8002/health (timeout 2400s)...
+[0;32m[ OK ][0m  TensorRT-LLM (trtllm-tp1-bf16) is healthy (http://localhost:8002/health)
+[0;32m[ OK ][0m  TensorRT-LLM server 'trtllm-tp1-bf16' ready at http://localhost:8002 (log: /home/nvadmin/onerec-serving/logs/onerec-trtllm-trtllm-tp1-bf16.log)
+
+$ /home/nvadmin/onerec-serving/scripts/12_serve_trtllm.sh --run-name trtllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8002

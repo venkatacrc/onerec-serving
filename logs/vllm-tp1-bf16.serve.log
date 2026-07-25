@@ -1,0 +1,36 @@
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
+[0;34m[INFO][0m  Starting vLLM server 'onerec-vllm-vllm-tp1-bf16' on GPU(s) 0 (TP=1, dtype=bfloat16, max-model-len=8192, port=8000)
+[0;34m[INFO][0m  Image: vllm/vllm-openai:v0.12.0
+[0;34m[INFO][0m  waiting for vLLM (vllm-tp1-bf16) to become healthy at http://localhost:8000/health (timeout 1800s)...
+[0;32m[ OK ][0m  vLLM (vllm-tp1-bf16) is healthy (http://localhost:8000/health)
+[0;32m[ OK ][0m  vLLM server 'vllm-tp1-bf16' ready at http://localhost:8000 (log: /home/nvadmin/onerec-serving/logs/onerec-vllm-vllm-tp1-bf16.log)
+
+$ /home/nvadmin/onerec-serving/scripts/10_serve_vllm.sh --run-name vllm-tp1-bf16 --tp 1 --gpus 0 --dtype bfloat16 --max-model-len 8192 --port 8000
