@@ -22,10 +22,9 @@ fi
 # OneRec-8B-pro is public (apache-2.0, gated=false) as of the time this
 # toolkit was written, so HF_TOKEN is optional. It's still wired through in
 # case that changes or you swap MODEL_ID for a gated model.
-retry 3 huggingface-cli download "$MODEL_ID" \
+retry 3 hf download "$MODEL_ID" \
   --revision "$MODEL_REVISION" \
   --local-dir "$MODEL_DIR" \
-  --exclude "*.gguf" "*.bin" \
   || die "Model download failed after retries."
 
 log_ok "Download complete."
