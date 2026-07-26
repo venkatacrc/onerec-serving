@@ -1,0 +1,339 @@
+{
+  "run_name": "vllm-tp8-bf16",
+  "engine": "vllm",
+  "mode": "throughput",
+  "base_url": "http://localhost:8000",
+  "gpu_ids": "0,1,2,3,4,5,6,7",
+  "generated_at": "2026-07-26T00:21:58Z",
+  "args": {
+    "mode": "throughput",
+    "base_url": "http://localhost:8000",
+    "served_model_name": "onerec-8b-pro",
+    "tokenizer_path": "/home/nvadmin/onerec-data/models/OneRec-8B-pro",
+    "run_name": "vllm-tp8-bf16",
+    "engine": "vllm",
+    "output_dir": "/home/nvadmin/onerec-serving/results",
+    "request_timeout_s": 300,
+    "gpu_ids": "0,1,2,3,4,5,6,7",
+    "input_lens": "128,512,2048",
+    "output_lens": "128,256",
+    "repetitions": 20,
+    "warmup_requests": 3,
+    "concurrency_levels": "1,2,4,8,16,32,64,128,256",
+    "fixed_input_len": 512,
+    "fixed_output_len": 256,
+    "warmup_seconds": 10.0,
+    "measure_seconds": 45.0
+  },
+  "results": {
+    "c1": {
+      "concurrency": 1,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 45.98769490599807,
+      "n_requests_completed": 32,
+      "n_failed": 0,
+      "top_errors": [],
+      "output_tokens_per_s": 178.13460789337228,
+      "total_tokens_per_s": 472.2350194849079,
+      "requests_per_s": 0.6958383120834855,
+      "output_tokens_per_s_per_gpu": 22.266825986671535,
+      "ttft_s": {
+        "p50": 0.14053083850740222,
+        "p90": 0.14447795429296093,
+        "p95": 0.14506409830137273,
+        "p99": 0.1799634731643892
+      },
+      "e2e_s": {
+        "p50": 0.7718040639956598,
+        "p90": 0.77272809700371,
+        "p95": 0.7728502779471456,
+        "p99": 0.7729320044684573
+      },
+      "gpu": {
+        "avg_util_pct": 12.492424242424242,
+        "avg_power_w": 2215.8948484848484,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 33
+      }
+    },
+    "c2": {
+      "concurrency": 2,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 46.55228334500862,
+      "n_requests_completed": 62,
+      "n_failed": 0,
+      "top_errors": [],
+      "output_tokens_per_s": 340.94997837956345,
+      "total_tokens_per_s": 902.469159002156,
+      "requests_per_s": 1.3318358530451697,
+      "output_tokens_per_s_per_gpu": 42.61874729744543,
+      "ttft_s": {
+        "p50": 0.6802730969939148,
+        "p90": 0.8245761903002858,
+        "p95": 0.8260728780012869,
+        "p99": 0.8771508829180675
+      },
+      "e2e_s": {
+        "p50": 0.8139118940016488,
+        "p90": 0.8380271303991321,
+        "p95": 0.8949440182012038,
+        "p99": 1.1271954515560358
+      },
+      "gpu": {
+        "avg_util_pct": 82.40234375,
+        "avg_power_w": 2663.6028125,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 32
+      }
+    },
+    "c4": {
+      "concurrency": 4,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 48.83798851699976,
+      "n_requests_completed": 73,
+      "n_failed": 0,
+      "top_errors": [],
+      "output_tokens_per_s": 382.65294225815614,
+      "total_tokens_per_s": 1012.1014706163527,
+      "requests_per_s": 1.4947380556959224,
+      "output_tokens_per_s_per_gpu": 47.83161778226952,
+      "ttft_s": {
+        "p50": 1.9614522240008228,
+        "p90": 2.084466880004038,
+        "p95": 2.092838968403521,
+        "p99": 2.109899583840743
+      },
+      "e2e_s": {
+        "p50": 2.0647205590066733,
+        "p90": 2.111784024196095,
+        "p95": 2.414616300194753,
+        "p99": 2.7624732625309845
+      },
+      "gpu": {
+        "avg_util_pct": 82.56617647058823,
+        "avg_power_w": 2696.0829411764707,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 17
+      }
+    },
+    "c8": {
+      "concurrency": 8,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 51.465925908996724,
+      "n_requests_completed": 79,
+      "n_failed": 3,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 3
+        }
+      ],
+      "output_tokens_per_s": 392.9590237191216,
+      "total_tokens_per_s": 1038.8232418967127,
+      "requests_per_s": 1.5349961864028188,
+      "output_tokens_per_s_per_gpu": 49.1198779648902,
+      "ttft_s": {
+        "p50": 4.5025542930088704,
+        "p90": 4.868506730804802,
+        "p95": 4.904559553401486,
+        "p99": 14.916144673715456
+      },
+      "e2e_s": {
+        "p50": 4.587227755997446,
+        "p90": 4.897854411008302,
+        "p95": 4.9510530144078055,
+        "p99": 14.917414717612841
+      },
+      "gpu": {
+        "avg_util_pct": 70.73611111111111,
+        "avg_power_w": 2621.347777777778,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 9
+      }
+    },
+    "c16": {
+      "concurrency": 16,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 55.80478777800454,
+      "n_requests_completed": 62,
+      "n_failed": 32,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 32
+        }
+      ],
+      "output_tokens_per_s": 284.4200405015419,
+      "total_tokens_per_s": 751.673855778615,
+      "requests_per_s": 1.111015783209148,
+      "output_tokens_per_s_per_gpu": 35.55250506269274,
+      "ttft_s": {
+        "p50": 4.841971802001353,
+        "p90": 10.051041778699437,
+        "p95": 10.082774143803544,
+        "p99": 10.146769607668102
+      },
+      "e2e_s": {
+        "p50": 8.984033832493878,
+        "p90": 11.065175423298205,
+        "p95": 16.704283468599886,
+        "p99": 18.050055706702697
+      },
+      "gpu": {
+        "avg_util_pct": 23.666666666666668,
+        "avg_power_w": 2102.1516666666666,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 6
+      }
+    },
+    "c32": {
+      "concurrency": 32,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 46.315926846000366,
+      "n_requests_completed": 71,
+      "n_failed": 25,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 25
+        }
+      ],
+      "output_tokens_per_s": 392.435199676234,
+      "total_tokens_per_s": 1038.9082822414737,
+      "requests_per_s": 1.532949998735289,
+      "output_tokens_per_s_per_gpu": 49.05439995952925,
+      "ttft_s": {
+        "p50": 2.1835032920062076,
+        "p90": 20.885213161003776,
+        "p95": 23.219106976495823,
+        "p99": 25.10999028969527
+      },
+      "e2e_s": {
+        "p50": 12.695225374991423,
+        "p90": 22.036299414990935,
+        "p95": 24.44281634950312,
+        "p99": 26.32625675470626
+      },
+      "gpu": {
+        "avg_util_pct": 45.575,
+        "avg_power_w": 2271.398,
+        "peak_mem_mib": 1353104.0,
+        "n_samples": 5
+      }
+    },
+    "c64": {
+      "concurrency": 64,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 63.29067837999901,
+      "n_requests_completed": 129,
+      "n_failed": 24,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 24
+        }
+      ],
+      "output_tokens_per_s": 521.7829994130095,
+      "total_tokens_per_s": 1379.429044445034,
+      "requests_per_s": 2.0382148414570684,
+      "output_tokens_per_s_per_gpu": 65.22287492662619,
+      "ttft_s": {
+        "p50": 0.2690615970059298,
+        "p90": 39.348290484002796,
+        "p95": 42.11470613499696,
+        "p99": 42.42501814816438
+      },
+      "e2e_s": {
+        "p50": 25.172149917008937,
+        "p90": 41.93507969960338,
+        "p95": 42.16777929460223,
+        "p99": 43.64167211140506
+      },
+      "gpu": {
+        "avg_util_pct": 45.25,
+        "avg_power_w": 2392.464,
+        "peak_mem_mib": 1353120.0,
+        "n_samples": 5
+      }
+    },
+    "c128": {
+      "concurrency": 128,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 97.41765952699643,
+      "n_requests_completed": 236,
+      "n_failed": 27,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 27
+        }
+      ],
+      "output_tokens_per_s": 620.1750308244419,
+      "total_tokens_per_s": 1639.487139965005,
+      "requests_per_s": 2.4225587141579763,
+      "output_tokens_per_s_per_gpu": 77.52187885305524,
+      "ttft_s": {
+        "p50": 0.27461851299449336,
+        "p90": 63.29787266249332,
+        "p95": 71.38488289099405,
+        "p99": 87.8549676065988
+      },
+      "e2e_s": {
+        "p50": 44.369785581497126,
+        "p90": 77.779682091008,
+        "p95": 85.91024844599815,
+        "p99": 87.89005322640733
+      },
+      "gpu": {
+        "avg_util_pct": 43.95,
+        "avg_power_w": 2450.068,
+        "peak_mem_mib": 1353120.0,
+        "n_samples": 5
+      }
+    },
+    "c256": {
+      "concurrency": 256,
+      "input_len_target": 512,
+      "output_len_target": 256,
+      "wall_s": 187.52795210300246,
+      "n_requests_completed": 472,
+      "n_failed": 47,
+      "top_errors": [
+        {
+          "error": "Server disconnected",
+          "count": 47
+        }
+      ],
+      "output_tokens_per_s": 644.3412763001393,
+      "total_tokens_per_s": 1702.9567934736003,
+      "requests_per_s": 2.516958110547419,
+      "output_tokens_per_s_per_gpu": 80.54265953751741,
+      "ttft_s": {
+        "p50": 0.3968287214956945,
+        "p90": 137.0696115641986,
+        "p95": 153.3182373578471,
+        "p99": 177.29845245080477
+      },
+      "e2e_s": {
+        "p50": 86.2613038260024,
+        "p90": 158.95959429788635,
+        "p95": 167.52158696793703,
+        "p99": 177.35922528073266
+      },
+      "gpu": {
+        "avg_util_pct": 41.0625,
+        "avg_power_w": 2729.0866666666666,
+        "peak_mem_mib": 1353120.0,
+        "n_samples": 6
+      }
+    }
+  }
+}
