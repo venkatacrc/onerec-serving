@@ -1,5 +1,4 @@
 # Generated benchmark output (large, host-specific, regenerate via run_all.sh)
-results/*
 !results/.gitkeep
 !logs/.gitkeep
 
