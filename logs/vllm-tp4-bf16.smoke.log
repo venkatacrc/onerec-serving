@@ -1,0 +1,31 @@
+[0;34m[INFO][0m  Sending smoke-test completion request to http://localhost:8000/v1/completions
+{
+    "id": "cmpl-ac3bc50898cb0c6b",
+    "object": "text_completion",
+    "created": 1785022695,
+    "model": "onerec-8b-pro",
+    "choices": [
+        {
+            "index": 0,
+            "text": " 1. **Action Movie D** (Similar to A): Both are action-packed with intense fight scenes and high-stakes plots. 2. **Sci-Fi Series E** (Similar to B): Shares the futuristic setting and complex character dynamics. 3. **Documentary F** (Similar to C): Focuses on real-world issues and investigative journalism, matching the depth of C.\n\nAnswer: 1. **Action Movie D** - Both are action-packed with intense fight scenes and high-stakes plots. 2. **Sci-Fi Series E** - Shares the futuristic setting and complex character dynamics. 3. **Document",
+            "logprobs": null,
+            "finish_reason": "length",
+            "stop_reason": null,
+            "token_ids": null,
+            "prompt_logprobs": null,
+            "prompt_token_ids": null
+        }
+    ],
+    "service_tier": null,
+    "system_fingerprint": null,
+    "usage": {
+        "prompt_tokens": 26,
+        "total_tokens": 154,
+        "completion_tokens": 128,
+        "prompt_tokens_details": null
+    },
+    "kv_transfer_params": null
+}
+[0;32m[ OK ][0m  Smoke test passed: server returned a non-empty completion.
+
+$ /home/nvadmin/onerec-serving/scripts/20_smoke_test.sh --port 8000

@@ -8,3 +8,10 @@ Run 'docker run --help' for more information
 [0;31m[FAIL][0m  SGLang server 'sglang-tp8-bf16' failed to become healthy. Last 60 log lines:
 
 $ /home/nvadmin/onerec-serving/scripts/11_serve_sglang.sh --run-name sglang-tp8-bf16 --tp 8 --gpus 0,1,2,3,4,5,6,7 --dtype bfloat16 --max-model-len 8192 --port 8001
+[0;34m[INFO][0m  Starting SGLang server 'onerec-sglang-sglang-tp8-bf16' on GPU(s) 0,1,2,3,4,5,6,7 (TP=8, dtype=bfloat16, max-model-len=8192, port=8001)
+[0;34m[INFO][0m  Image: lmsysorg/sglang:latest-cu130-runtime
+[0;34m[INFO][0m  waiting for SGLang (sglang-tp8-bf16) to become healthy at http://localhost:8001/health (timeout 1800s)...
+[0;32m[ OK ][0m  SGLang (sglang-tp8-bf16) is healthy (http://localhost:8001/health)
+[0;32m[ OK ][0m  SGLang server 'sglang-tp8-bf16' ready at http://localhost:8001 (log: /home/nvadmin/onerec-serving/logs/onerec-sglang-sglang-tp8-bf16.log)
+
+$ /home/nvadmin/onerec-serving/scripts/11_serve_sglang.sh --run-name sglang-tp8-bf16 --tp 8 --gpus 0,1,2,3,4,5,6,7 --dtype bfloat16 --max-model-len 8192 --port 8001

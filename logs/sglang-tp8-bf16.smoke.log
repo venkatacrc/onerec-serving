@@ -1,0 +1,29 @@
+[0;34m[INFO][0m  Sending smoke-test completion request to http://localhost:8001/v1/completions
+{
+    "id": "6b832dd808d94c09be87f5a3ae80e796",
+    "object": "text_completion",
+    "created": 1785026812,
+    "model": "onerec-8b-pro",
+    "choices": [
+        {
+            "index": 0,
+            "text": " 1. **Action Movie D** - High-octane stunts and intense fight scenes similar to Movie A. 2. **Sci-Fi Series E** - Futuristic world-building and space exploration like Series B. 3. **Documentary F** - Deep dive into a unique subject with compelling visuals like Documentary C. 1. **Action Movie D** - High-octane stunts and intense fight scenes similar to Movie A. 2. **Sci-Fi Series E** - Futuristic world-building and space exploration like Series B. 3. **Documentary F** - Deep dive into a unique subject with",
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 26,
+        "total_tokens": 154,
+        "completion_tokens": 128,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 0
+    },
+    "metadata": {
+        "weight_version": "default"
+    }
+}
+[0;32m[ OK ][0m  Smoke test passed: server returned a non-empty completion.
+
+$ /home/nvadmin/onerec-serving/scripts/20_smoke_test.sh --port 8001

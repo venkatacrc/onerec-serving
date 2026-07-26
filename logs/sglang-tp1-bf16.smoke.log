@@ -1,0 +1,29 @@
+[0;34m[INFO][0m  Sending smoke-test completion request to http://localhost:8001/v1/completions
+{
+    "id": "74308c01569f41fbbb0e4b8b7cd9cb7f",
+    "object": "text_completion",
+    "created": 1785025400,
+    "model": "onerec-8b-pro",
+    "choices": [
+        {
+            "index": 0,
+            "text": " \n1. Action Movie D - Similar to Action Movie A due to the same genre and action-packed nature.\n2. Sci-Fi Series E - Aligns with Sci-Fi Series B as both feature futuristic settings and complex plots.\n3. Documentary F - Comparable to Documentary C because it covers similar topics and investigative journalism. \n\n<answer>3</answer> \n<explanation>1. Action Movie D is similar to Action Movie A as both are action films, likely featuring intense action sequences and thrilling plots. 2. Sci-Fi Series E aligns with Sci-Fi Series B due to their shared sci-fi genre, which often includes space",
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 26,
+        "total_tokens": 154,
+        "completion_tokens": 128,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 0
+    },
+    "metadata": {
+        "weight_version": "default"
+    }
+}
+[0;32m[ OK ][0m  Smoke test passed: server returned a non-empty completion.
+
+$ /home/nvadmin/onerec-serving/scripts/20_smoke_test.sh --port 8001
