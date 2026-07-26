@@ -1,72 +1,52 @@
 [
   {
-    "name": "vllm-tp1-bf16",
-    "engine": "vllm",
-    "tp": 1,
-    "dtype": "bfloat16",
-    "status": "ok",
-    "latency_ok": true,
-    "throughput_ok": true,
-    "duration_s": 1361.8
-  },
-  {
     "name": "vllm-tp2-bf16",
     "engine": "vllm",
     "tp": 2,
     "dtype": "bfloat16",
-    "status": "server_failed_to_start",
-    "duration_s": 1802.6
+    "status": "ok",
+    "latency_ok": true,
+    "throughput_ok": true,
+    "duration_s": 1366.9
   },
   {
     "name": "vllm-tp4-bf16",
     "engine": "vllm",
     "tp": 4,
     "dtype": "bfloat16",
-    "status": "server_failed_to_start",
-    "duration_s": 1802.6
+    "status": "ok",
+    "latency_ok": true,
+    "throughput_ok": true,
+    "duration_s": 1358.2
   },
   {
     "name": "vllm-tp8-bf16",
     "engine": "vllm",
     "tp": 8,
     "dtype": "bfloat16",
-    "status": "server_failed_to_start",
-    "duration_s": 1802.6
-  },
-  {
-    "name": "vllm-tp1-fp8",
-    "engine": "vllm",
-    "tp": 1,
-    "dtype": "fp8",
     "status": "ok",
     "latency_ok": true,
     "throughput_ok": true,
-    "duration_s": 1388.8
+    "duration_s": 1350.1
   },
   {
     "name": "sglang-tp1-bf16",
     "engine": "sglang",
     "tp": 1,
     "dtype": "bfloat16",
-    "status": "server_failed_to_start",
-    "duration_s": 1803.3
+    "status": "ok",
+    "latency_ok": true,
+    "throughput_ok": true,
+    "duration_s": 1382.3
   },
   {
     "name": "sglang-tp8-bf16",
     "engine": "sglang",
     "tp": 8,
     "dtype": "bfloat16",
-    "status": "server_failed_to_start",
-    "duration_s": 1802.6
-  },
-  {
-    "name": "trtllm-tp1-bf16",
-    "engine": "trtllm",
-    "tp": 1,
-    "dtype": "bfloat16",
     "status": "ok",
     "latency_ok": true,
     "throughput_ok": true,
-    "duration_s": 1396.8
+    "duration_s": 1390.0
   }
 ]
