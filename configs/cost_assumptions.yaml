@@ -1,0 +1,23 @@
+# Placeholder cost/traffic assumptions for bench/capacity_planner.py.
+#
+# EVERY number in this file is a placeholder pending real inputs -- see
+# docs/CAPACITY_AND_COST.md §1 for exactly which of these need a real
+# number from finance/procurement (GPU pricing) and from production traffic
+# logs (QPS, output-length distribution, peak/average ratio) before this
+# tool's output should be used for an actual purchase/allocation decision.
+
+# GPU-hour pricing (USD). Defaults are illustrative list-price-class numbers
+# for a B200/GB200-class accelerator on a major cloud, NOT a quote --
+# replace with your actual negotiated/contracted rates.
+on_demand_usd_per_gpu_hour: 6.98
+reserved_1yr_usd_per_gpu_hour: 4.75   # ~32% discount, illustrative
+reserved_3yr_usd_per_gpu_hour: 3.35   # ~52% discount, illustrative
+
+# On-prem cross-check (if you own the hardware instead of renting):
+power_usd_per_kwh: 0.12
+gpu_tdp_watts: 1000                    # B200 TDP-class figure; capacity_planner.py prefers *measured* avg_power_w from the report when available
+
+# Capacity planning knobs.
+utilization_target_pct: 70             # plan to run at this % of the measured per-GPU throughput ceiling, leaving burst headroom instead of planning at the ragged saturation edge
+peak_to_average_qps_ratio: 3.0         # PLACEHOLDER: replace with your actual measured daily/seasonal peak-to-average ratio (see docs/CAPACITY_AND_COST.md §3)
+reserved_coverage_of_average_pct: 100  # % of AVERAGE (not peak) load to cover with reserved capacity; the rest of the peak is covered on-demand/burst

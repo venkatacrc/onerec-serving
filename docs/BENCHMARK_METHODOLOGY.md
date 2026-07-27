@@ -53,13 +53,22 @@ a 10s warmup window that is discarded). This is the standard methodology
 used by vLLM's/SGLang's own `benchmark_serving`-style tools for
 saturation testing, and is what determines the **maximum sustainable
 throughput** at each concurrency level — as opposed to an *open-loop*
-Poisson-arrival test (not implemented here), which would instead answer "at
-real-world arrival rate X, what's my latency?" Both are valid; closed-loop
-is the right tool for answering "what's the ceiling," which is the
-question this exercise is optimizing for. If you need open-loop
-arrival-rate modeling for capacity planning against a specific measured
-production QPS curve, that's a natural extension — see
-`docs/RUNBOOK.md` → "Extending this toolkit."
+Poisson-arrival test, which instead answers "at real-world arrival rate X,
+what's my latency and is my backlog growing?" Both are valid; closed-loop
+is the right tool for answering "what's the ceiling."
+
+### Open-loop mode (`--mode open-loop`)
+
+Now implemented (`bench/benchmark_client.py`'s `run_open_loop_sweep` /
+`run_open_loop_trace`): requests are submitted on an independent Poisson
+process at a target rate (`--qps-levels` for a flat-rate sweep, or
+`--qps-trace-file` to replay a full measured daily/seasonal arrival-rate
+curve), regardless of whether earlier requests have finished — the
+defining difference from closed-loop. Use this to validate a specific
+measured production QPS curve rather than only the saturation ceiling; see
+`docs/CAPACITY_AND_COST.md` §4 for the full methodology and how the
+resulting `backlog_at_window_end` field tells you whether a given arrival
+rate is actually sustainable.
 
 At each concurrency level, in addition to throughput, TTFT/E2E percentiles
 are captured **at that load level** — this is what produces the
@@ -120,7 +129,11 @@ than assumed.
   the domain but is not a replay of real user traffic. Before finalizing a
   capacity plan, validate the input/output length assumptions
   (`configs/matrix.yaml` → `defaults.latency`/`defaults.throughput`) against
-  actual logged request distributions if available.
+  actual logged request distributions if available. **Now addressed**:
+  `platform/feature_store/` + `bench/build_prompts_from_feature_store.py`
+  let any mode (`--prompt-file`) run against real (or feature-store-shaped)
+  user-history prompts instead of only the synthetic generator — see
+  `platform/feature_store/README.md`.
 
 ## 7. Reproducibility
 

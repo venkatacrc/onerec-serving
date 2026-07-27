@@ -1,0 +1,59 @@
+# Helm values for prometheus-community/kube-prometheus-stack, used by
+# platform/bootstrap_k8s.sh. Uses classic `prometheus.io/scrape` annotation
+# discovery (matching the annotations already on every pod template under
+# platform/k8s/) instead of requiring a ServiceMonitor CRD per component --
+# fewer moving pieces for a single-node deployment.
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {cpu: "1", memory: 4Gi}
+    additionalScrapeConfigs:
+      - job_name: onerec-annotated-pods
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
+
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: true
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  # Default admin password is the chart default ("prom-operator") unless
+  # overridden -- change this before exposing Grafana outside localhost
+  # port-forward / a trusted network.
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 200m, memory: 256Mi}
+  # Wire in a real receiver (Slack/PagerDuty/email webhook) here before
+  # relying on platform/observability/prometheus-rules.yaml for real
+  # on-call alerting -- default Alertmanager config has no receivers
+  # configured, so alerts fire but go nowhere until you add one.
+
+# Single-node: no need for HA replicas.
+prometheusOperator:
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}

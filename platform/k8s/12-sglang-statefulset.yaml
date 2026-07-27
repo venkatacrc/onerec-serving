@@ -1,0 +1,78 @@
+# Alternative engine pool (SGLang), same shape as the vLLM StatefulSet.
+# `replicas: 0` by default -- the benchmark's current data
+# (docs/PRODUCTION_ARCHITECTURE.md §4) has vLLM/TensorRT-LLM slightly
+# ahead of SGLang on this hardware/model, so vLLM is the default active
+# engine. Scale this up (and scale down 10-vllm-statefulset.yaml) to
+# switch, and point platform/router/config.example.yaml's backend URLs at
+# `onerec-sglang-headless` instead.
+#
+# SGLang is the natural choice if you need prefix-aware routing to pay off
+# the most -- its RadixAttention cache benefits the most from the router's
+# `ROUTING_STRATEGY=prefix_hash` mode (see platform/router/routing.py).
+apiVersion: v1
+kind: Service
+metadata:
+  name: onerec-sglang-headless
+  namespace: onerec
+  labels: {app: onerec-sglang, tier: stable}
+spec:
+  clusterIP: None
+  selector: {app: onerec-sglang, tier: stable}
+  ports: [{name: http, port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: onerec-sglang
+  namespace: onerec
+  labels: {app: onerec-sglang, tier: stable}
+spec:
+  serviceName: onerec-sglang-headless
+  replicas: 0
+  selector:
+    matchLabels: {app: onerec-sglang, tier: stable}
+  template:
+    metadata:
+      labels: {app: onerec-sglang, tier: stable}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: sglang
+          image: lmsysorg/sglang:latest-cu130-runtime   # keep in sync with scripts/env.sh SGLANG_IMAGE
+          # scripts/11_serve_sglang.sh works around a missing `distro`
+          # module in this image tag by over-riding the entrypoint; do the
+          # same here if you hit ModuleNotFoundError -- see
+          # docs/RUNBOOK.md "Troubleshooting: SGLang ModuleNotFoundError".
+          command: ["/bin/bash", "-c"]
+          args:
+            - "python3 -m pip install --quiet distro || true; python3 -m sglang.launch_server --model-path /model --served-model-name onerec-8b-pro --tp 1 --dtype bfloat16 --context-length 8192 --host 0.0.0.0 --port 8000 --trust-remote-code"
+          ports: [{containerPort: 8000, name: http}]
+          env: [{name: HF_HOME, value: /root/.cache/huggingface}]
+          resources:
+            requests: {cpu: "4", memory: 16Gi, nvidia.com/gpu: "1"}
+            limits: {cpu: "8", memory: 32Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: model, mountPath: /model, readOnly: true}
+            - {name: hf-cache, mountPath: /root/.cache/huggingface}
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+            failureThreshold: 6
+            timeoutSeconds: 5
+      volumes:
+        - name: model
+          hostPath: {path: /root/onerec-data/models/OneRec-8B-pro, type: Directory}
+        - name: hf-cache
+          hostPath: {path: /root/onerec-data/hf-cache, type: DirectoryOrCreate}

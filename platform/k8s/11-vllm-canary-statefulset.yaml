@@ -1,0 +1,80 @@
+# Canary replica pool: same shape as 10-vllm-statefulset.yaml but a
+# SEPARATE StatefulSet (different pod template = different image/config),
+# 1 replica, its own headless Service. The router only sends traffic here
+# once CANARY_WEIGHT_PCT > 0 (default 0) -- see docs/ROLLOUT_STRATEGY.md
+# for the full canary promote/rollback workflow, driven by
+# platform/registry/registry.py.
+apiVersion: v1
+kind: Service
+metadata:
+  name: onerec-vllm-canary-headless
+  namespace: onerec
+  labels: {app: onerec-vllm, tier: canary}
+spec:
+  clusterIP: None
+  selector: {app: onerec-vllm, tier: canary}
+  ports:
+    - {name: http, port: 8000, targetPort: 8000}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: onerec-vllm-canary
+  namespace: onerec
+  labels: {app: onerec-vllm, tier: canary}
+spec:
+  serviceName: onerec-vllm-canary-headless
+  replicas: 1
+  selector:
+    matchLabels: {app: onerec-vllm, tier: canary}
+  template:
+    metadata:
+      labels: {app: onerec-vllm, tier: canary}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: vllm
+          # Bump this tag (and nothing else) to test a new engine release
+          # against a slice of real traffic before promoting it to stable
+          # via `platform/registry/registry.py promote ... --group stable`.
+          image: vllm/vllm-openai:v0.12.0
+          args:
+            - "--model=/model"
+            - "--served-model-name=onerec-8b-pro"
+            - "--tensor-parallel-size=1"
+            - "--dtype=bfloat16"
+            - "--max-model-len=8192"
+            - "--gpu-memory-utilization=0.90"
+            - "--enable-chunked-prefill"
+            - "--trust-remote-code"
+            - "--port=8000"
+          ports: [{containerPort: 8000, name: http}]
+          env: [{name: HF_HOME, value: /root/.cache/huggingface}]
+          resources:
+            requests: {cpu: "4", memory: 16Gi, nvidia.com/gpu: "1"}
+            limits: {cpu: "8", memory: 32Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: model, mountPath: /model, readOnly: true}
+            - {name: hf-cache, mountPath: /root/.cache/huggingface}
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+            failureThreshold: 6
+            timeoutSeconds: 5
+      volumes:
+        - name: model
+          hostPath: {path: /root/onerec-data/models/OneRec-8B-pro, type: Directory}
+        - name: hf-cache
+          hostPath: {path: /root/onerec-data/hf-cache, type: DirectoryOrCreate}

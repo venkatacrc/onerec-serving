@@ -1,0 +1,48 @@
+# Jaeger all-in-one: simplest single-node trace storage/query backend
+# (in-memory storage -- fine for a dev/test node; swap the storage backend
+# to Elasticsearch/Cassandra for a real fleet, see
+# docs/PRODUCTION_ARCHITECTURE.md §8).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: onerec-observability
+  labels: {app: jaeger}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: jaeger}}
+  template:
+    metadata: {labels: {app: jaeger}}
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.60
+          env:
+            - {name: COLLECTOR_OTLP_ENABLED, value: "true"}
+          ports:
+            - {name: ui, containerPort: 16686}
+            - {name: otlp-grpc, containerPort: 4317}
+            - {name: otlp-http, containerPort: 4318}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: onerec-observability
+spec:
+  selector: {app: jaeger}
+  ports:
+    - {name: otlp-grpc, port: 4317, targetPort: 4317}
+    - {name: otlp-http, port: 4318, targetPort: 4318}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: onerec-observability
+spec:
+  selector: {app: jaeger}
+  ports: [{name: ui, port: 16686, targetPort: 16686}]

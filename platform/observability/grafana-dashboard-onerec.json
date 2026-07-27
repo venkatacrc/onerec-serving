@@ -1,0 +1,104 @@
+{
+  "title": "OneRec Serving - Production Overview",
+  "uid": "onerec-serving-overview",
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-1h", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {"text": "Prometheus", "value": "Prometheus"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Output tokens/sec (vLLM native metric, summed across stable replicas)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "sum(rate(vllm:generation_tokens_total[1m]))", "legendFormat": "output tok/s"}
+      ]
+    },
+    {
+      "id": 2, "title": "Router request rate by status",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "sum(rate(onerec_router_requests_total[1m])) by (status)", "legendFormat": "{{status}}"}
+      ]
+    },
+    {
+      "id": 3, "title": "TTFT percentiles (router-observed, includes queue wait)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le))", "legendFormat": "vLLM TTFT p50"},
+        {"expr": "histogram_quantile(0.99, sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le))", "legendFormat": "vLLM TTFT p99"}
+      ]
+    },
+    {
+      "id": 4, "title": "End-to-end latency percentiles (router)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(onerec_router_request_latency_seconds_bucket[5m])) by (le, group))", "legendFormat": "p50 {{group}}"},
+        {"expr": "histogram_quantile(0.99, sum(rate(onerec_router_request_latency_seconds_bucket[5m])) by (le, group))", "legendFormat": "p99 {{group}}"}
+      ]
+    },
+    {
+      "id": 5, "title": "Admission-control queue depth per backend",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "onerec_router_backend_queue_depth", "legendFormat": "{{backend}}"}
+      ]
+    },
+    {
+      "id": 6, "title": "In-flight requests per backend",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "onerec_router_backend_outstanding", "legendFormat": "{{backend}}"}
+      ]
+    },
+    {
+      "id": 7, "title": "GPU utilization % per replica (DCGM)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "DCGM_FI_DEV_GPU_UTIL{exported_namespace=\"onerec\"}", "legendFormat": "{{exported_pod}} gpu{{gpu}}"}
+      ]
+    },
+    {
+      "id": 8, "title": "GPU power draw (W) per replica (DCGM)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "DCGM_FI_DEV_POWER_USAGE{exported_namespace=\"onerec\"}", "legendFormat": "{{exported_pod}} gpu{{gpu}}"}
+      ]
+    },
+    {
+      "id": 9, "title": "Backend health / circuit breaker state",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "onerec_router_backend_healthy", "legendFormat": "healthy: {{backend}}"},
+        {"expr": "onerec_router_backend_breaker_state", "legendFormat": "breaker: {{backend}} (0=closed,1=half_open,2=open)"}
+      ]
+    },
+    {
+      "id": 10, "title": "Canary traffic weight % (live rollout control)",
+      "type": "timeseries", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "targets": [
+        {"expr": "onerec_router_canary_weight_pct", "legendFormat": "canary %"}
+      ]
+    }
+  ]
+}

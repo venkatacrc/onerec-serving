@@ -1,0 +1,97 @@
+# OneRec router (platform/router/): the single entry point in front of the
+# engine replica pools. Build+push platform/router/Dockerfile as
+# `onerec-router:latest` (or your registry path) before applying this.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onerec-router-backends
+  namespace: onerec
+data:
+  backends.yaml: |
+    groups:
+      stable:
+        - http://onerec-vllm-0.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-1.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-2.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-3.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-4.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-5.onerec-vllm-headless.onerec.svc.cluster.local:8000
+        - http://onerec-vllm-6.onerec-vllm-headless.onerec.svc.cluster.local:8000
+      canary:
+        - http://onerec-vllm-canary-0.onerec-vllm-canary-headless.onerec.svc.cluster.local:8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onerec-router
+  namespace: onerec
+  labels: {app: onerec-router}
+spec:
+  replicas: 2   # stateless -- HPA below scales this independently of the GPU replica pools
+  selector:
+    matchLabels: {app: onerec-router}
+  template:
+    metadata:
+      labels: {app: onerec-router}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: router
+          image: onerec-router:latest   # build from platform/router/Dockerfile
+          ports: [{containerPort: 9000, name: http}]
+          env:
+            - {name: ROUTER_BACKENDS_FILE, value: /etc/onerec-router/backends.yaml}
+            - {name: ROUTING_STRATEGY, value: least_outstanding}
+            - {name: MAX_INFLIGHT_PER_BACKEND, value: "32"}
+            - {name: MAX_QUEUE_DEPTH_PER_BACKEND, value: "64"}
+            - {name: CANARY_WEIGHT_PCT, value: "0"}
+            - {name: FALLBACK_ENABLED, value: "true"}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.onerec-observability.svc.cluster.local:4317"}
+            - {name: OTEL_SERVICE_NAME, value: onerec-router}
+          resources:
+            requests: {cpu: "1", memory: 512Mi}
+            limits: {cpu: "2", memory: 1Gi}
+          volumeMounts:
+            - {name: backends-config, mountPath: /etc/onerec-router}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 9000}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: 9000}
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: backends-config
+          configMap: {name: onerec-router-backends}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onerec-router
+  namespace: onerec
+  labels: {app: onerec-router}
+spec:
+  selector: {app: onerec-router}
+  ports:
+    - {name: http, port: 9000, targetPort: 9000}
+  type: ClusterIP   # put a real Ingress/cloud LB in front of this in a real cluster (docs/PRODUCTION_ARCHITECTURE.md §8); NodePort/port-forward for single-node testing
+---
+# The router itself is a plain stateless HTTP service, so plain k8s HPA on
+# CPU is enough (unlike the GPU engine pools, which need KEDA -- see
+# 30-keda-scaledobjects.yaml -- because CPU isn't the relevant signal there).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: onerec-router-hpa
+  namespace: onerec
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: onerec-router}
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}

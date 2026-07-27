@@ -1,0 +1,31 @@
+# Backend topology for the OneRec router.
+#
+# "groups" maps a traffic group name -> list of base URLs for engine replicas
+# in that group. The router always has at least a "stable" group; a
+# "canary" group is optional and only receives traffic once
+# CANARY_WEIGHT_PCT > 0 (see docs/ROLLOUT_STRATEGY.md).
+#
+# In-cluster, these are normally k8s Service DNS names for a *headless*
+# Service so the router sees one URL per pod (needed for per-replica
+# admission control / least-outstanding routing) rather than one URL for a
+# ClusterIP-load-balanced Service (which would hide individual replicas).
+# "stable" pods come from the `onerec-vllm` StatefulSet (platform/k8s/10-vllm-statefulset.yaml),
+# "canary" pods from the separate `onerec-vllm-canary` StatefulSet
+# (platform/k8s/11-vllm-canary-statefulset.yaml) -- a different StatefulSet
+# because canary runs a different image/config, not just a different pod
+# index of the same template. Each StatefulSet's headless Service gives
+# every pod a stable per-replica DNS name (<pod>-N.<headless-svc>...),
+# which is what makes per-replica admission control / least-outstanding
+# routing possible -- a normal ClusterIP Service would hide individual
+# replicas behind one load-balanced VIP.
+groups:
+  stable:
+    - http://onerec-vllm-0.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-1.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-2.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-3.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-4.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-5.onerec-vllm-headless.onerec.svc.cluster.local:8000
+    - http://onerec-vllm-6.onerec-vllm-headless.onerec.svc.cluster.local:8000
+  canary:
+    - http://onerec-vllm-canary-0.onerec-vllm-canary-headless.onerec.svc.cluster.local:8000

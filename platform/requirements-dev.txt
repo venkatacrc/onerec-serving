@@ -1,0 +1,8 @@
+# Combined dependencies to run every platform/ local self-test
+# (test_router_local.py, test_client_local.py, test_feature_store_local.py)
+# from one venv. Each component's own requirements.txt is still the
+# source of truth for what that component needs in its own Docker image --
+# this file exists purely for local development/testing convenience.
+-r router/requirements.txt
+-r client_sdk/requirements.txt
+-r feature_store/requirements.txt

@@ -1,0 +1,68 @@
+# Default-deny + explicit allow rules for the onerec namespace. Engine
+# pods should only ever receive traffic from the router (never directly
+# from outside the cluster) -- this is the network-level enforcement of
+# "all traffic goes through admission control," not just a convention.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: onerec
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-router-to-engines
+  namespace: onerec
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app, operator: In, values: [onerec-vllm, onerec-sglang, onerec-trtllm]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: onerec-router}}
+      ports: [{protocol: TCP, port: 8000}]
+    # Prometheus needs to scrape engine /metrics directly (not through the router).
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: onerec-observability}}
+      ports: [{protocol: TCP, port: 8000}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-router
+  namespace: onerec
+spec:
+  podSelector: {matchLabels: {app: onerec-router}}
+  policyTypes: [Ingress]
+  ingress:
+    - {}   # router is the intended public entry point; restrict further with an Ingress controller / authn layer in front of it in a real cluster
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-router-and-engines-to-feature-store
+  namespace: onerec
+spec:
+  podSelector: {matchLabels: {app: onerec-feature-store}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: onerec-router}}
+        - podSelector: {matchLabels: {app: onerec-vllm}}
+      ports: [{protocol: TCP, port: 9100}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-feature-store-to-redis
+  namespace: onerec
+spec:
+  podSelector: {matchLabels: {app: onerec-redis}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app: onerec-feature-store}}}]
+      ports: [{protocol: TCP, port: 6379}]

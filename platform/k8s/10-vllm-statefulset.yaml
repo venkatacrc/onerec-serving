@@ -1,0 +1,134 @@
+# Stable vLLM replica pool. StatefulSet (not Deployment) so every pod gets
+# a stable per-replica DNS name via the headless Service below -- required
+# for the router's per-replica admission control / least-outstanding
+# routing (see platform/router/config.example.yaml).
+#
+# Default topology implements the "replicate, don't shard" conclusion from
+# docs/PRODUCTION_ARCHITECTURE.md §4: 7 x TP=1 replicas here + 1 canary
+# replica (11-vllm-canary-statefulset.yaml) = 8 GPUs total. Edit
+# `replicas` / `--tensor-parallel-size` together if you re-run the matrix
+# and the data says otherwise for a future model/hardware pairing.
+#
+# NOTE on volumes: hostPath is used because this is a single-node
+# deployment and the model weights already live on that node's disk at
+# $ONEREC_DATA_DIR (scripts/env.sh, default ~/onerec-data) from
+# scripts/02_download_model.sh. Edit `hostPath.path` below to match your
+# $ONEREC_DATA_DIR. On a real multi-node cluster, replace both hostPath
+# volumes with a ReadOnlyMany PVC backed by NFS/CSI shared storage instead
+# (see docs/PRODUCTION_ARCHITECTURE.md §8).
+apiVersion: v1
+kind: Service
+metadata:
+  name: onerec-vllm-headless
+  namespace: onerec
+  labels:
+    app: onerec-vllm
+    tier: stable
+spec:
+  clusterIP: None
+  selector:
+    app: onerec-vllm
+    tier: stable
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: onerec-vllm
+  namespace: onerec
+  labels:
+    app: onerec-vllm
+    tier: stable
+spec:
+  serviceName: onerec-vllm-headless
+  replicas: 7
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0   # bump to (replicas - N) to canary-upgrade N stable pods in place; see docs/ROLLOUT_STRATEGY.md
+  selector:
+    matchLabels:
+      app: onerec-vllm
+      tier: stable
+  template:
+    metadata:
+      labels:
+        app: onerec-vllm
+        tier: stable
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60   # let in-flight generations finish before SIGKILL
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels: {app: onerec-vllm, tier: stable}
+                topologyKey: kubernetes.io/hostname   # no-op on 1 node; spreads replicas across nodes once you have more than one
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.12.0   # keep in sync with scripts/env.sh VLLM_IMAGE
+          args:
+            - "--model=/model"
+            - "--served-model-name=onerec-8b-pro"
+            - "--tensor-parallel-size=1"
+            - "--dtype=bfloat16"
+            - "--max-model-len=8192"
+            - "--gpu-memory-utilization=0.90"
+            - "--enable-chunked-prefill"
+            - "--trust-remote-code"
+            - "--port=8000"
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: HF_HOME
+              value: /root/.cache/huggingface
+          resources:
+            requests: {cpu: "4", memory: 16Gi, nvidia.com/gpu: "1"}
+            limits: {cpu: "8", memory: 32Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: model, mountPath: /model, readOnly: true}
+            - {name: hf-cache, mountPath: /root/.cache/huggingface}
+          # k8s-native health checks (this is the "wired into the
+          # orchestrator" version of the manual `curl /health` used in
+          # scripts/20_smoke_test.sh):
+          startupProbe:      # generous: covers cold weight-load time, not counted against liveness
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 10
+            failureThreshold: 60     # 10min budget to become healthy the first time
+          readinessProbe:    # controls whether this pod receives traffic (via headless Service DNS resolution + router health checks)
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:     # only restarts the container if it's truly wedged, not merely slow
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+            failureThreshold: 6
+            timeoutSeconds: 5
+      volumes:
+        - name: model
+          hostPath: {path: /root/onerec-data/models/OneRec-8B-pro, type: Directory}
+        - name: hf-cache
+          hostPath: {path: /root/onerec-data/hf-cache, type: DirectoryOrCreate}
+---
+# Protects against a voluntary disruption (e.g. node drain, cluster
+# upgrade) taking out more than 1 replica at once -- a no-op safety net on
+# 1 node today, load-bearing on a real multi-node cluster.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: onerec-vllm-pdb
+  namespace: onerec
+spec:
+  minAvailable: 5   # tolerate at most 2 of 7 stable replicas down at once from a voluntary disruption
+  selector:
+    matchLabels: {app: onerec-vllm, tier: stable}

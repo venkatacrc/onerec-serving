@@ -55,14 +55,31 @@ When it finishes:
 If you'd rather run things step by step (recommended the first time, so you
 can sanity-check each stage), see `docs/RUNBOOK.md`.
 
+## Going to production
+
+Once the benchmark has answered "replicate vs. shard" and "which engine"
+for your workload, `platform/` turns that into an actual production
+deployment on this same 8-GPU node: a Kubernetes-native (k3s) rollout with
+a smart router (load balancing, admission control/backpressure, canary
+routing, circuit breakers, graceful degradation), autoscaling on queue
+depth/GPU utilization (KEDA), a full observability stack (Prometheus/
+Grafana/Alertmanager/Jaeger/DCGM), a model/version registry with
+rollback, a reference feature-store integration, and cost/capacity
+planning against real traffic patterns (including open-loop Poisson-arrival
+load testing). **Start at `docs/PRODUCTION_ARCHITECTURE.md`.**
+
 ## Repository layout
 
 ```
 docs/
-  ARCHITECTURE.md            Hardware/model context + deployment topology options
-  SERVING_OPTIONS.md         vLLM vs SGLang vs TensorRT-LLM (+ others) comparison
-  BENCHMARK_METHODOLOGY.md   Exact definitions/statistics behind every number
-  RUNBOOK.md                 Step-by-step operator runbook + troubleshooting
+  ARCHITECTURE.md             Hardware/model context + deployment topology options
+  SERVING_OPTIONS.md          vLLM vs SGLang vs TensorRT-LLM (+ others) comparison
+  BENCHMARK_METHODOLOGY.md    Exact definitions/statistics behind every number
+  RUNBOOK.md                  Step-by-step operator runbook + troubleshooting
+  PRODUCTION_ARCHITECTURE.md  Entry point for the platform/ layer below -- start here for production
+  OBSERVABILITY.md            Dashboards, alerting, tracing, PII-safe structured logging
+  ROLLOUT_STRATEGY.md         Canary/blue-green workflow + model/version registry + rollback
+  CAPACITY_AND_COST.md        tok/s/$ modeling, reserved-vs-on-demand, open-loop load testing
 scripts/
   env.sh, common.sh          Shared config + helper functions
   00_preflight_check.sh      Verify GPUs/driver/disk/tools, no changes made
@@ -73,12 +90,23 @@ scripts/
   90_stop_serving.sh         Tear down containers
 configs/
   matrix.yaml                The benchmark run matrix (edit to add/remove configs)
+  cost_assumptions.yaml       GPU pricing + traffic placeholders for bench/capacity_planner.py
 bench/
-  prompt_dataset.py          Domain-flavored synthetic prompt generator
-  benchmark_client.py        Async load generator (latency + throughput modes)
-  run_matrix.py              Orchestrates serve -> smoke test -> benchmark -> teardown
-  generate_slides.py         Builds results/report/SLIDES.html (architect-facing deck)
-  generate_report.py         Aggregates results/ into results/report/REPORT.md
+  prompt_dataset.py                      Domain-flavored synthetic prompt generator
+  benchmark_client.py                    Async load generator (latency / throughput / open-loop modes)
+  build_prompts_from_feature_store.py    Pulls real-shaped prompts from platform/feature_store/
+  capacity_planner.py                    GPU sizing + $/month + reserved-vs-on-demand from real benchmark data
+  run_matrix.py               Orchestrates serve -> smoke test -> benchmark -> teardown
+  generate_slides.py          Builds results/report/SLIDES.html (architect-facing deck)
+  generate_report.py          Aggregates results/ into results/report/REPORT.md
+platform/                     Production-grade layer on top of the benchmark toolkit -- see docs/PRODUCTION_ARCHITECTURE.md
+  bootstrap_k8s.sh             k3s + NVIDIA device plugin + Helm + KEDA + kube-prometheus-stack + Jaeger
+  router/                      Load balancer: admission control, canary routing, circuit breaker, fallback, metrics/tracing
+  client_sdk/                  Reference calling-service client: retry/backoff + circuit breaker
+  feature_store/               Reference real-time user-history service (replaces synthetic-only prompts)
+  registry/                    Model/version registry CLI: register / promote / rollback
+  k8s/                         StatefulSets, router/feature-store Deployments, KEDA ScaledObjects, NetworkPolicies
+  observability/               Prometheus alert rules, Grafana dashboard, DCGM-exporter, OTel Collector + Jaeger
 run_all.sh                   One-shot end-to-end entry point
 results/, logs/              Generated output (gitignored)
 ```
