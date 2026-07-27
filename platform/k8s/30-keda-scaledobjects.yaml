@@ -1,0 +1,62 @@
+# Horizontal autoscaling tied to queue depth / GPU utilization, not CPU
+# (see docs/PRODUCTION_ARCHITECTURE.md §3 "Autoscaling" row for why KEDA).
+# Requires KEDA installed (platform/bootstrap_k8s.sh) and
+# kube-prometheus-stack scraping both the router (queue depth metric) and
+# DCGM-exporter (GPU utilization metric) -- see
+# platform/observability/kube-prometheus-values.yaml.
+#
+# `serverAddress` below assumes the kube-prometheus-stack Helm release
+# name `kube-prometheus-stack` in namespace `onerec-observability`
+# (platform/bootstrap_k8s.sh's default) -- adjust if you installed it
+# under a different release name/namespace.
+#
+# Ceiling note: on this single 8-GPU node, `maxReplicaCount: 7` for the
+# stable pool is a hard ceiling (7 stable + 1 canary = 8 GPUs total) --
+# KEDA can recommend scaling further but the pods will stay Pending
+# (unschedulable, no free `nvidia.com/gpu`) until GPUs free up or you add
+# nodes. On a real multi-node cluster with cluster-autoscaler, exceeding
+# available GPU capacity instead triggers new node provisioning.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: onerec-vllm-scaledobject
+  namespace: onerec
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: onerec-vllm
+  minReplicaCount: 3    # never scale below this even at zero load -- avoids full cold-start latency on the next request burst
+  maxReplicaCount: 7
+  cooldownPeriod: 120    # seconds to wait after the last high-load trigger before scaling back down -- avoids flapping
+  pollingInterval: 15
+  triggers:
+    # Trigger 1: router-reported admission-control queue depth per stable
+    # replica -- rising queue depth is the earliest, most direct signal
+    # that this pool can't keep up with arrival rate (see
+    # platform/router/metrics.py onerec_router_backend_queue_depth).
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.onerec-observability.svc.cluster.local:9090
+        metricName: onerec_vllm_avg_queue_depth
+        query: |
+          sum(onerec_router_backend_queue_depth{group="stable"})
+          /
+          clamp_min(count(kube_pod_labels{namespace="onerec", label_app="onerec-vllm", label_tier="stable"}), 1)
+        threshold: "5"     # scale out once average queued requests/replica exceeds 5
+    # Trigger 2: DCGM-reported GPU utilization -- catches the case where
+    # the engine's own internal batching/scheduler is saturated even if
+    # the router's queue hasn't built up yet (e.g. long-context requests
+    # dominating GPU time per request).
+    - type: prometheus
+      metadata:
+        serverAddress: http://kube-prometheus-stack-prometheus.onerec-observability.svc.cluster.local:9090
+        metricName: onerec_vllm_avg_gpu_util
+        query: |
+          avg(DCGM_FI_DEV_GPU_UTIL{exported_namespace="onerec", exported_pod=~"onerec-vllm-[0-9]+"})
+        threshold: "75"    # scale out once average GPU utilization across stable replicas exceeds 75%
+
+# Canary pool intentionally has NO autoscaler -- it's meant to stay at a
+# fixed, small replica count while you evaluate it (see
+# docs/ROLLOUT_STRATEGY.md); scale it manually if you need more canary
+# capacity to get a statistically meaningful sample faster.

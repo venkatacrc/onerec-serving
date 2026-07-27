@@ -1,0 +1,94 @@
+# Alerting on latency SLO breach, error-rate spikes, GPU ECC errors, and
+# OOM/preemption events -- picked up automatically by the Prometheus
+# Operator installed via kube-prometheus-stack (matched on the `release`
+# label kube-prometheus-stack's default ruleSelector expects).
+#
+# Alertmanager has no receivers configured by default (see
+# kube-prometheus-values.yaml comment) -- wire in Slack/PagerDuty/email
+# before relying on this for real on-call paging.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: onerec-alerts
+  namespace: onerec-observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: onerec.latency
+      rules:
+        - alert: OneRecLatencySLOBreach
+          expr: |
+            histogram_quantile(0.99, sum(rate(onerec_router_request_latency_seconds_bucket[5m])) by (le, group)) > 5
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "OneRec router p99 latency > 5s for group {{ $labels.group }}"
+            description: "Investigate GPU utilization/queue depth for this group; consider scaling out (KEDA) or checking for a stuck/slow replica."
+
+    - name: onerec.errors
+      rules:
+        - alert: OneRecHighErrorRate
+          expr: |
+            sum(rate(onerec_router_requests_total{status="error"}[5m])) by (group)
+            /
+            clamp_min(sum(rate(onerec_router_requests_total[5m])) by (group), 0.001) > 0.05
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: "OneRec router error rate > 5% for group {{ $labels.group }}"
+            description: "Check engine logs (docs/RUNBOOK.md troubleshooting section) and circuit breaker state (onerec_router_backend_breaker_state)."
+
+        - alert: OneRecDegradedFallbackActive
+          expr: sum(rate(onerec_router_requests_total{status="degraded_fallback"}[2m])) > 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: "OneRec router is serving degraded/fallback responses"
+            description: "All backends in a traffic group are unhealthy or saturated -- real capacity exhaustion, not just elevated latency. Page on-call."
+
+        - alert: OneRecCircuitBreakerOpen
+          expr: onerec_router_backend_breaker_state == 2
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: "Router circuit breaker OPEN for backend {{ $labels.backend }}"
+            description: "This backend has been failing repeated requests and is temporarily excluded from routing."
+
+        - alert: OneRecBackendUnhealthy
+          expr: onerec_router_backend_healthy == 0
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: "Backend {{ $labels.backend }} failing router health checks"
+
+    - name: onerec.gpu
+      rules:
+        - alert: OneRecGpuEccDoubleBitError
+          expr: increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[10m]) > 0
+          labels: {severity: critical}
+          annotations:
+            summary: "Uncorrectable (double-bit) GPU ECC error detected on {{ $labels.instance }}"
+            description: "Double-bit ECC errors are uncorrectable and can silently corrupt results. Drain and reboot/RMA the affected GPU."
+
+        - alert: OneRecGpuThermalThrottle
+          expr: DCGM_FI_DEV_THERMAL_VIOLATION > 0
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "GPU {{ $labels.gpu }} on {{ $labels.instance }} is thermally throttling"
+            description: "Sustained thermal throttling silently degrades tok/s below benchmarked numbers -- check cooling/airflow before trusting capacity plans."
+
+        - alert: OneRecPodOOMKilled
+          expr: increase(kube_pod_container_status_last_terminated_reason{reason="OOMKilled", namespace="onerec"}[10m]) > 0
+          labels: {severity: critical}
+          annotations:
+            summary: "Pod {{ $labels.pod }} in namespace onerec was OOMKilled"
+            description: "Check container resource limits vs. actual usage (docs/RUNBOOK.md); for engine pods this often means --gpu-memory-utilization/--mem-fraction-static too aggressive relative to concurrent KV cache growth."
+
+        - alert: OneRecPodPreempted
+          expr: increase(kube_pod_status_reason{reason="Preempted", namespace="onerec"}[10m]) > 0
+          labels: {severity: warning}
+          annotations:
+            summary: "Pod {{ $labels.pod }} in namespace onerec was preempted"
+            description: "A higher-priority workload took this pod's node resources -- check PriorityClass configuration if engine pods should never be preempted."

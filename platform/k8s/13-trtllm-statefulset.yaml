@@ -1,0 +1,77 @@
+# Alternative engine pool (TensorRT-LLM). `replicas: 0` by default -- see
+# 12-sglang-statefulset.yaml's header comment for the same rationale.
+# TensorRT-LLM narrowly had the best reliable tok/s/GPU in the current
+# report (docs/PRODUCTION_ARCHITECTURE.md §4); consider making this the
+# default active engine instead of vLLM once you've re-run the full
+# matrix and confirmed it holds, weighed against vLLM's simpler
+# operational surface (see docs/SERVING_OPTIONS.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: onerec-trtllm-headless
+  namespace: onerec
+  labels: {app: onerec-trtllm, tier: stable}
+spec:
+  clusterIP: None
+  selector: {app: onerec-trtllm, tier: stable}
+  ports: [{name: http, port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: onerec-trtllm
+  namespace: onerec
+  labels: {app: onerec-trtllm, tier: stable}
+spec:
+  serviceName: onerec-trtllm-headless
+  replicas: 0
+  selector:
+    matchLabels: {app: onerec-trtllm, tier: stable}
+  template:
+    metadata:
+      labels: {app: onerec-trtllm, tier: stable}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: trtllm
+          image: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc22   # keep in sync with scripts/env.sh TRTLLM_IMAGE
+          args:
+            - "trtllm-serve"
+            - "/model"
+            - "--host=0.0.0.0"
+            - "--port=8000"
+            - "--tp_size=1"
+            - "--max_seq_len=8192"
+          ports: [{containerPort: 8000, name: http}]
+          env: [{name: HF_HOME, value: /root/.cache/huggingface}]
+          resources:
+            requests: {cpu: "4", memory: 16Gi, nvidia.com/gpu: "1"}
+            limits: {cpu: "8", memory: 32Gi, nvidia.com/gpu: "1"}
+          volumeMounts:
+            - {name: model, mountPath: /model, readOnly: true}
+            - {name: hf-cache, mountPath: /root/.cache/huggingface}
+          # TensorRT-LLM engine compilation can take much longer than
+          # weight loading alone -- see docs/RUNBOOK.md "TensorRT-LLM
+          # troubleshooting" -- hence the extra-generous startupProbe budget.
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+            failureThreshold: 120     # 30min budget
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+            failureThreshold: 6
+            timeoutSeconds: 5
+      volumes:
+        - name: model
+          hostPath: {path: /root/onerec-data/models/OneRec-8B-pro, type: Directory}
+        - name: hf-cache
+          hostPath: {path: /root/onerec-data/hf-cache, type: DirectoryOrCreate}

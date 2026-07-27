@@ -1,4 +1,5 @@
-.PHONY: preflight install download pull smoke bench report slides all stop clean
+.PHONY: preflight install download pull smoke bench report slides all stop clean \
+	platform-bootstrap platform-apply platform-test capacity-plan
 
 preflight:
 	./scripts/00_preflight_check.sh
@@ -39,3 +40,25 @@ stop:
 clean: stop
 	rm -rf results/* logs/*
 	touch results/.gitkeep logs/.gitkeep
+
+# --- Production layer (platform/) -- see docs/PRODUCTION_ARCHITECTURE.md ---
+
+platform-bootstrap:
+	./platform/bootstrap_k8s.sh
+
+platform-apply:
+	kubectl apply -f platform/k8s/00-namespace.yaml
+	kubectl apply -f platform/k8s/
+
+platform-test:
+	bash -c 'source scripts/env.sh && source "$$VENV_DIR/bin/activate" && \
+		pip install --quiet -r platform/requirements-dev.txt && \
+		python3 platform/router/test_router_local.py && \
+		python3 platform/client_sdk/test_client_local.py && \
+		python3 platform/feature_store/test_feature_store_local.py && \
+		python3 platform/registry/test_registry_local.py'
+
+capacity-plan:
+	bash -c 'source scripts/env.sh && source "$$VENV_DIR/bin/activate" && \
+		python3 bench/capacity_planner.py --target-qps $${QPS:-50} --avg-output-tokens $${AVG_OUTPUT_TOKENS:-256} \
+			--out results/report/CAPACITY_PLAN.md'

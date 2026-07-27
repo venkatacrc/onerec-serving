@@ -322,13 +322,29 @@ inform a real capacity-planning decision:
   template, add `"tgi": SCRIPTS_DIR / "13_serve_tgi.sh"` to
   `SERVE_SCRIPT` in `bench/run_matrix.py`, add matrix entries with
   `engine: tgi`.
-- **Open-loop (Poisson arrival) load testing:** `bench/benchmark_client.py`'s
-  `run_throughput_sweep` is closed-loop by design (see
-  `docs/BENCHMARK_METHODOLOGY.md` §2); add a `--mode open-loop` that issues
-  requests on a Poisson-process schedule at a target QPS instead of "always
-  keep C in flight," if you need to validate against a specific measured
-  production arrival rate rather than find the saturation ceiling.
+- **Open-loop (Poisson arrival) load testing:** done --
+  `bench/benchmark_client.py --mode open-loop` (see
+  `docs/BENCHMARK_METHODOLOGY.md` §2 and `docs/CAPACITY_AND_COST.md` §4).
 - **Automated output-quality regression** (especially for the FP8 config):
   wire in `RecIF-Bench` (linked from the model's Hugging Face page) or a
   smaller golden-set eval, and gate the report on a quality delta, not just
   speed.
+
+## 7. Production deployment (`platform/`)
+
+Everything above turns the model into a benchmarked container you can run
+by hand. `platform/` turns that into an actual production deployment —
+Kubernetes-native serving, a smart router (load balancing/admission
+control/canary/circuit breakers/graceful degradation), autoscaling,
+observability, a model/version registry, and cost/capacity planning. Start
+at `docs/PRODUCTION_ARCHITECTURE.md`; the fast path once you have a box
+with `sudo`:
+
+```bash
+./platform/bootstrap_k8s.sh          # k3s + NVIDIA device plugin + Helm + KEDA + observability stack
+docker build -t onerec-router:latest platform/router/
+docker build -t onerec-feature-store:latest platform/feature_store/
+kubectl apply -f platform/k8s/00-namespace.yaml
+kubectl apply -f platform/k8s/
+kubectl -n onerec get pods -w
+```
